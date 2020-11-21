@@ -118,9 +118,196 @@ pub struct Mesh {
 pub struct Model {
     pub meshes: Vec<Mesh>,
     pub materials: Vec<Material>,
+    pub world : World,
+
 }
 
+pub struct World{
+    pub chunks: HashMap<[u8;3], Chunk>,
+}
+/*
+pub struct Model {
+    pub meshes: Vec<Mesh>,
+    pub materials: Vec<Material>,
+
+    pub chunk: Chunk,
+}
+*/
+
+
+#[derive(PartialEq, Eq, Hash, Copy, Clone)]
+pub enum QuadType {
+    GRASS_TOP,
+    GRASS_SIDE,
+    DIRT,
+    STONE,
+}
+
+#[derive(PartialEq, Eq)]
+pub enum BlockType {
+    GRASS,
+    DIRT,
+    STONE,
+}
+
+
+pub struct Chunk {
+    pub blocks: HashMap<[u8;3], Block>,
+}
+
+const CHUNKSIZE: u8 = 16;
+
+#[derive(PartialEq, Eq, Hash)]
+pub enum UV {
+    MIN,
+    MAX,
+}
+
+#[derive(PartialEq, Eq, Hash)]
+pub struct UVQuadKey{
+    quadtype: QuadType,
+    uv: UV
+}
+
+const CUBE_INDICES: &[u16] = &[
+    0, 1, 2, 2, 3, 0, // top
+    4, 5, 6, 6, 7, 4, // bottom
+    8, 9, 10, 10, 11, 8, // right
+    12, 13, 14, 14, 15, 12, // left
+    16, 17, 18, 18, 19, 16, // front
+    20, 21, 22, 22, 23, 20, // back
+];
+
 impl Model {
+    fn create_vertices(blocktype:BlockType) -> Vec<Vertex>{//(Vec<Vertex>, Vec<u16>) {
+        fn build_vertex(position:[i8;3], quadtype:QuadType, u:UV, v:UV)->Vertex
+        {
+            let mut umap: HashMap<UVQuadKey, f32> = HashMap::new();
+            umap.insert(UVQuadKey{quadtype:QuadType::GRASS_TOP, uv:UV::MIN}, 0.125); umap.insert(UVQuadKey{quadtype:QuadType::GRASS_TOP, uv:UV::MAX}, 0.1875);
+            umap.insert(UVQuadKey{quadtype:QuadType::GRASS_SIDE, uv:UV::MIN}, 0.1875); umap.insert(UVQuadKey{quadtype:QuadType::GRASS_SIDE, uv:UV::MAX}, 0.25);
+            umap.insert(UVQuadKey{quadtype:QuadType::DIRT, uv:UV::MIN}, 0.125); umap.insert(UVQuadKey{quadtype:QuadType::DIRT, uv:UV::MAX}, 0.1875);
+            umap.insert(UVQuadKey{quadtype:QuadType::STONE, uv:UV::MIN}, 0.0); umap.insert(UVQuadKey{quadtype:QuadType::STONE, uv:UV::MAX}, 0.0625);
+        
+            let mut vmap: HashMap<UVQuadKey, f32> = HashMap::new();
+            vmap.insert(UVQuadKey{quadtype:QuadType::GRASS_TOP, uv:UV::MIN}, 0.375); vmap.insert(UVQuadKey{quadtype:QuadType::GRASS_TOP, uv:UV::MAX}, 0.4375);
+            vmap.insert(UVQuadKey{quadtype:QuadType::GRASS_SIDE, uv:UV::MIN}, 0.9375); vmap.insert(UVQuadKey{quadtype:QuadType::GRASS_SIDE, uv:UV::MAX}, 1.0);
+            vmap.insert(UVQuadKey{quadtype:QuadType::DIRT, uv:UV::MIN}, 0.9375); vmap.insert(UVQuadKey{quadtype:QuadType::DIRT, uv:UV::MAX}, 1.0);
+            vmap.insert(UVQuadKey{quadtype:QuadType::STONE, uv:UV::MIN}, 0.875); vmap.insert(UVQuadKey{quadtype:QuadType::STONE, uv:UV::MAX}, 0.9375);
+          
+            let u_pos = umap.get(&UVQuadKey{quadtype:quadtype, uv:u});
+            match u_pos {
+                Some(i) => {
+                    let v_pos = vmap.get(&UVQuadKey{quadtype:quadtype, uv:v});
+                    match v_pos {
+                        Some(j) => {
+                            let gvtestpos:[f32;3]=[position[0] as f32, position[1] as f32, position[2] as f32];
+                            //Vertex{position:position, tex_coords:[Clone::clone(u_pos.unwrap()), Clone::clone(v_pos.unwrap())]}
+                            Vertex{position:gvtestpos, tex_coords:[Clone::clone(u_pos.unwrap()), 1.0-Clone::clone(v_pos.unwrap())]}
+                        },
+                        None => panic!("two"),
+                    }
+                },
+                None => panic!("one"),
+            }
+        }
+    
+    
+        let mut quadtype:QuadType=QuadType::STONE;
+        if blocktype == BlockType::DIRT
+        {
+            quadtype = QuadType::DIRT;
+        }
+        
+        let mut vertex_data: Vec<Vertex>= Vec::new();
+        
+    
+        // top (0, 0, 1)
+        let mut temp_quadtype:QuadType=quadtype;   
+        if blocktype==BlockType::GRASS
+        {
+            temp_quadtype = QuadType::GRASS_TOP;
+        }
+    
+        vertex_data.push(build_vertex([0, 0, 1], temp_quadtype, UV::MIN, UV::MIN));
+        vertex_data.push(build_vertex([1, 0, 1], temp_quadtype, UV::MAX, UV::MIN));
+        vertex_data.push(build_vertex([1, 1, 1], temp_quadtype, UV::MAX, UV::MAX));
+        vertex_data.push(build_vertex([0, 1, 1], temp_quadtype, UV::MIN, UV::MAX));
+    
+        // bottom (0, 0, -1) 
+        temp_quadtype=quadtype;   
+        if blocktype==BlockType::GRASS
+        {
+            temp_quadtype = QuadType::DIRT;
+        }
+    
+        vertex_data.push(build_vertex([0, 1, 0], temp_quadtype, UV::MAX, UV::MIN));
+        vertex_data.push(build_vertex([1, 1, 0], temp_quadtype, UV::MIN, UV::MIN));
+        vertex_data.push(build_vertex([1, 0, 0], temp_quadtype, UV::MIN, UV::MAX));
+        vertex_data.push(build_vertex([0, 0, 0], temp_quadtype, UV::MAX, UV::MAX));
+    
+        // right (1, 0, 0)
+        temp_quadtype=quadtype;   
+        if blocktype==BlockType::GRASS
+        {
+            temp_quadtype = QuadType::GRASS_SIDE;
+        }
+        vertex_data.push(build_vertex([1, 0, 0], temp_quadtype, UV::MIN, UV::MIN));
+        vertex_data.push(build_vertex([1, 1, 0], temp_quadtype, UV::MAX, UV::MIN));
+        vertex_data.push(build_vertex([1, 1, 1], temp_quadtype, UV::MAX, UV::MAX));
+        vertex_data.push(build_vertex([1, 0, 1], temp_quadtype, UV::MIN, UV::MAX));
+    
+        // left (-1, 0, 0)
+        temp_quadtype=quadtype;   
+        if blocktype==BlockType::GRASS
+        {
+            temp_quadtype = QuadType::GRASS_SIDE;
+        }
+    
+        vertex_data.push(build_vertex([0, 0, 1], temp_quadtype, UV::MIN, UV::MAX));
+        vertex_data.push(build_vertex([0, 1, 1], temp_quadtype, UV::MAX, UV::MAX));
+        vertex_data.push(build_vertex([0, 1, 0], temp_quadtype, UV::MAX, UV::MIN));
+        vertex_data.push(build_vertex([0, 0, 0], temp_quadtype, UV::MIN, UV::MIN));
+    
+        // front (0, 1, 0)
+        temp_quadtype=quadtype;   
+        if blocktype==BlockType::GRASS
+        {
+            temp_quadtype = QuadType::GRASS_SIDE;
+        }
+    
+        vertex_data.push(build_vertex([1, 1, 0], temp_quadtype, UV::MAX, UV::MIN));
+        vertex_data.push(build_vertex([0, 1, 0], temp_quadtype, UV::MIN, UV::MIN));
+        vertex_data.push(build_vertex([0, 1, 1], temp_quadtype, UV::MIN, UV::MAX));
+        vertex_data.push(build_vertex([1, 1, 1], temp_quadtype, UV::MAX, UV::MAX));
+    
+        // back (0, -1, 0)
+        temp_quadtype=quadtype;   
+        if blocktype==BlockType::GRASS
+        {
+            temp_quadtype = QuadType::GRASS_SIDE;
+        }
+    
+        vertex_data.push(build_vertex([1, 0, 1], temp_quadtype, UV::MAX, UV::MAX));
+        vertex_data.push(build_vertex([0, 0, 1], temp_quadtype, UV::MIN, UV::MAX));
+        vertex_data.push(build_vertex([0, 0, 0], temp_quadtype, UV::MIN, UV::MIN));
+        vertex_data.push(build_vertex([1, 0, 0], temp_quadtype, UV::MAX, UV::MIN));
+    
+    
+        /*
+        let index_data: &[u16] = &[
+            0, 1, 2, 2, 3, 0, // top
+            4, 5, 6, 6, 7, 4, // bottom
+            8, 9, 10, 10, 11, 8, // right
+            12, 13, 14, 14, 15, 12, // left
+            16, 17, 18, 18, 19, 16, // front
+            20, 21, 22, 22, 23, 20, // back
+        ];
+    
+        (vertex_data, index_data.to_vec())
+        */
+        vertex_data
+    }
+    
     pub fn load<P: AsRef<Path>>(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
