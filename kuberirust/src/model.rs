@@ -125,14 +125,6 @@ pub struct Model {
 pub struct World{
     pub chunks: HashMap<[u8;3], Chunk>,
 }
-/*
-pub struct Model {
-    pub meshes: Vec<Mesh>,
-    pub materials: Vec<Material>,
-
-    pub chunk: Chunk,
-}
-*/
 
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone)]
