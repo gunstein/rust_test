@@ -5,6 +5,10 @@ use wgpu::util::DeviceExt;
 
 use crate::texture;
 
+use rand::Rng;
+
+use std::collections::HashMap;
+
 pub trait Vertex {
     fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a>;
 }
@@ -107,20 +111,24 @@ impl Material {
     }
 }
 
+
 pub struct Mesh {
     pub name: String,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub num_elements: u32,
     pub material: usize,
+    pub instances: Vec<Instance>,
 }
 
 pub struct Model {
     pub meshes: Vec<Mesh>,
     pub materials: Vec<Material>,
+
     pub world : World,
 
 }
+
 
 pub struct World{
     pub chunks: HashMap<[u8;3], Chunk>,
@@ -171,6 +179,27 @@ const CUBE_INDICES: &[u16] = &[
 ];
 
 impl Model {
+    pub fn build_random_chunk()->Chunk
+    {
+        //Generate random chunk
+        let mut chunk = Chunk{ blocks : HashMap::new(),};
+        let mut rng = rand::thread_rng();
+        for k in 0..CHUNKSIZE {
+            for l in 0..CHUNKSIZE {
+                for m in 0..CHUNKSIZE {
+                    let val = rng.gen_range(0, 10);
+                    if val<8
+                    {
+                        //Add block
+                        chunk.blocks.insert( [k, l, m], Block{blocktype:BlockType::GRASS});
+                    }
+                }
+            }
+        }
+        chunk
+    }
+
+
     fn create_vertices(blocktype:BlockType) -> Vec<Vertex>{//(Vec<Vertex>, Vec<u16>) {
         fn build_vertex(position:[i8;3], quadtype:QuadType, u:UV, v:UV)->Vertex
         {
@@ -306,6 +335,12 @@ impl Model {
         layout: &wgpu::BindGroupLayout,
         path: P,
     ) -> Result<Self> {
+
+        let VERTICES_GRASS = create_vertices(BlockType::GRASS);
+        let VERTICES_STONE = create_vertices(BlockType::STONE);
+        let VERTICES_DIRT = create_vertices(BlockType::DIRT);
+
+        /*
         let (obj_models, obj_materials) = tobj::load_obj(path.as_ref(), true)?;
 
         // We're assuming that the texture files are stored with the obj file
@@ -329,6 +364,12 @@ impl Model {
                 layout,
             ));
         }
+        */
+
+        let diffuse_bytes = include_bytes!("blockatlas.jpg");
+        let diffuse_texture =
+            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "blockatlas.jpg").unwrap();
+
 
         let mut meshes = Vec::new();
         for m in obj_models {
