@@ -114,6 +114,7 @@ impl Material {
 
 pub struct Mesh {
     pub name: String,
+    pub blocktype: BlockType,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub num_elements: u32,
@@ -365,12 +366,79 @@ impl Model {
             ));
         }
         */
-
+        //load material
+        let mut materials = Vec::new();
         let diffuse_bytes = include_bytes!("blockatlas.jpg");
         let diffuse_texture =
             texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "blockatlas.jpg").unwrap();
+        materials.push(Material::new(
+            device,
+            &mat.name,
+            diffuse_texture,
+            normal_texture,
+            layout,
+        ));
 
+        //build world
+        let mut world = World{chunks:HashMap::new()};
+        //First chunk,
+        //trenger flere sef
+        world.chunks.insert( [0, 0, 0], build_random_chunk);
 
+        //Go through world and build meshes. One mesh for each blocktype
+        let mut mesh_grass = Mesh{blocktype : BlockType::GRASS, };
+        let mut mesh_dirt = Mesh{blocktype : BlockType::DIRT};
+        let mut mesh_stone = Mesh{blocktype : BlockType::STONE};
+
+        //Siden vi bruker instancing er vertexene allerede bygget
+        //mesh_grass.vertex_buffer=VERTICES_GRASS Se hvordan dette er gjort i instances-programmet (f.eks)
+        mesh_grass.vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(&VERTICES_GRASS),
+            usage: wgpu::BufferUsage::VERTEX,
+        });
+
+        mesh_dirt.vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(&VERTICES_DIRT),
+            usage: wgpu::BufferUsage::VERTEX,
+        });
+        
+        mesh_dirt.vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(&VERTICES_STONE),
+            usage: wgpu::BufferUsage::VERTEX,
+        });
+
+        //mesh*.index_buffer=CUBE_INDICES
+        mesh_grass.index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(CUBE_INDICES),
+            usage: wgpu::BufferUsage::INDEX,
+        });
+        
+        mesh_dirt.index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(CUBE_INDICES),
+            usage: wgpu::BufferUsage::INDEX,
+        });
+
+        mesh_stone.index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(CUBE_INDICES),
+            usage: wgpu::BufferUsage::INDEX,
+        });
+
+        //mesh*.instances må genereres basert på world
+        for (keychunk, chunk) in &all_chunks {
+            for (blockkey, block) in &curren_chunk.blocks {
+                //println!("{}: \"{}\"", book, review);
+                //Masse kode her
+                //transler til rett plass. Må ta hensyn til flere chunks.
+            }
+        }
+
+        /*
         let mut meshes = Vec::new();
         for m in obj_models {
             let mut vertices = Vec::new();
@@ -460,7 +528,8 @@ impl Model {
                 num_elements: m.mesh.indices.len() as u32,
                 material: m.mesh.material_id.unwrap_or(0),
             });
-        }
+            
+        }*/
 
         Ok(Self { meshes, materials })
     }
