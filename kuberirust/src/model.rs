@@ -119,7 +119,7 @@ pub struct Mesh {
     pub index_buffer: wgpu::Buffer,
     pub num_elements: u32,
     pub material: usize,
-    pub instances: Vec<Instance>,
+    pub instances: wgpu::Buffer,
 }
 
 pub struct Model {
@@ -151,6 +151,9 @@ pub enum BlockType {
     STONE,
 }
 
+pub struct Block {
+    pub blocktype : BlockType,
+}
 
 pub struct Chunk {
     pub blocks: HashMap<[u8;3], Block>,
@@ -178,6 +181,26 @@ const CUBE_INDICES: &[u16] = &[
     16, 17, 18, 18, 19, 16, // front
     20, 21, 22, 22, 23, 20, // back
 ];
+
+struct Instance {
+    position: cgmath::Vector3<f32>,
+    //rotation: cgmath::Quaternion<f32>,
+}
+
+impl Instance {
+    fn to_raw(&self) -> InstanceRaw {
+        InstanceRaw {
+            model: cgmath::Matrix4::from_translation(self.position)
+                //* cgmath::Matrix4::from(self.rotation),
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct InstanceRaw {
+    model: cgmath::Matrix4<f32>,
+}
 
 impl Model {
     pub fn build_random_chunk()->Chunk
@@ -386,9 +409,9 @@ impl Model {
         world.chunks.insert( [0, 0, 0], build_random_chunk);
 
         //Go through world and build meshes. One mesh for each blocktype
-        let mut mesh_grass = Mesh{blocktype : BlockType::GRASS, };
-        let mut mesh_dirt = Mesh{blocktype : BlockType::DIRT};
-        let mut mesh_stone = Mesh{blocktype : BlockType::STONE};
+        let mut mesh_grass = Mesh{blocktype : BlockType::GRASS, num_elements : CUBE_INDICES.len()};
+        let mut mesh_dirt = Mesh{blocktype : BlockType::DIRT, num_elements : CUBE_INDICES.len()};
+        let mut mesh_stone = Mesh{blocktype : BlockType::STONE, num_elements : CUBE_INDICES.len()};
 
         //Siden vi bruker instancing er vertexene allerede bygget
         //mesh_grass.vertex_buffer=VERTICES_GRASS Se hvordan dette er gjort i instances-programmet (f.eks)
@@ -430,13 +453,63 @@ impl Model {
         });
 
         //mesh*.instances må genereres basert på world
-        for (keychunk, chunk) in &all_chunks {
-            for (blockkey, block) in &curren_chunk.blocks {
-                //println!("{}: \"{}\"", book, review);
-                //Masse kode her
+        let mut instances_grass:Vec<Instance>=Vec::new();
+        let mut instances_dirt:Vec<Instance>=Vec::new();
+        let mut instances_stone:Vec<Instance>=Vec::new();   
+
+        let create_instance = |x, y, z| {
+            let position = cgmath::Vector3 {
+                x: x as f32,
+                y: y as f32,
+                z: z as f32,
+            };
+            Instance { position }
+        };
+        for (chunkkey, chunk) in &world.chunks {
+            for (blockkey, block) in &chunk.blocks {
                 //transler til rett plass. Må ta hensyn til flere chunks.
+                let x = (chunkkey[0] * CHUNKSIZE ) + blockkey[0];
+                let y = (chunkkey[1] * CHUNKSIZE ) + blockkey[1];
+                let z = (chunkkey[2] * CHUNKSIZE ) + blockkey[2];
+                if block.blocktype==BlockType::GRASS
+                {
+                    instances_grass.push(create_instance(x as f32, y as f32, z as f32));
+                }
+                else if block.blocktype==BlockType::DIRT
+                {
+                    instances_dirt.push(create_instance(x as f32, y as f32, z as f32));
+                }
+                else
+                {
+                    instances_stone.push(create_instance(x as f32, y as f32, z as f32));
+                }
             }
         }
+
+        let instance_data = instances_grass.iter().map(Instance::to_raw).collect::<Vec<_>>();
+        let mesh_grass.instances = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsage::STORAGE,
+        });
+
+        let instance_data = instances_grass.iter().map(Instance::to_raw).collect::<Vec<_>>();
+        let mesh_dirt.instances = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsage::STORAGE,
+        });
+        
+        let instance_data = instances_grass.iter().map(Instance::to_raw).collect::<Vec<_>>();
+        let mesh_stone.instances = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsage::STORAGE,
+        });
+
+        meshes.push(mesh_grass);
+        meshes.push(mesh_dirt);
+        meshes.push(mesh_stone);
 
         /*
         let mut meshes = Vec::new();
