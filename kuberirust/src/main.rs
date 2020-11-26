@@ -252,7 +252,7 @@ impl State {
             contents: bytemuck::cast_slice(&[uniforms]),
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
-
+        /*
         const SPACE_BETWEEN: f32 = 3.0;
         let instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
@@ -285,6 +285,7 @@ impl State {
             contents: bytemuck::cast_slice(&instance_data),
             usage: wgpu::BufferUsage::STORAGE,
         });
+        */
 
         let uniform_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -298,6 +299,7 @@ impl State {
                         },
                         count: None,
                     },
+                    /*
                     // NEW!
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
@@ -310,7 +312,7 @@ impl State {
                             min_binding_size: None,
                         },
                         count: None,
-                    },
+                    },*/
                 ],
                 label: Some("uniform_bind_group_layout"),
             });
@@ -322,11 +324,12 @@ impl State {
                     binding: 0,
                     resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(..)),
                 },
+                /*
                 // NEW!
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Buffer(instance_buffer.slice(..)),
-                },
+                },*/
             ],
             label: Some("uniform_bind_group"),
         });

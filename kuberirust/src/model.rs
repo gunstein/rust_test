@@ -117,9 +117,11 @@ pub struct Mesh {
     pub blocktype: BlockType,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
-    pub num_elements: u32,
+    pub num_indexes: u32,
     pub material: usize,
-    pub instances: wgpu::Buffer,
+    pub instances_buffer: wgpu::Buffer,
+    pub uniform_bind_group_instances: wgpu::BindGroup,
+    pub num_instances: u32,
 }
 
 pub struct Model {
@@ -465,6 +467,7 @@ impl Model {
             };
             Instance { position }
         };
+
         for (chunkkey, chunk) in &world.chunks {
             for (blockkey, block) in &chunk.blocks {
                 //transler til rett plass. Må ta hensyn til flere chunks.
@@ -486,13 +489,54 @@ impl Model {
             }
         }
 
-        let instance_data = instances_grass.iter().map(Instance::to_raw).collect::<Vec<_>>();
-        let mesh_grass.instances = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instance_data),
-            usage: wgpu::BufferUsage::STORAGE,
-        });
+        let create_instance_buffer_and_bindgroup = |mesh, instances| {
+            let instance_data = instances_grass.iter().map(Instance::to_raw).collect::<Vec<_>>();
+            let mesh.instances_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Instance Buffer"),
+                contents: bytemuck::cast_slice(&instance_data),
+                usage: wgpu::BufferUsage::STORAGE,
+            });
+            
 
+            let uniform_bind_group_layout_instances =
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[/
+                        // NEW!
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStage::VERTEX,
+                            ty: wgpu::BindingType::StorageBuffer {
+                                // We don't plan on changing the size of this buffer
+                                dynamic: false,
+                                // The shader is not allowed to modify it's contents
+                                readonly: true,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ],
+                    label: Some("uniform_bind_group_layout_instances"),
+                });
+    
+            let mesh.uniform_bind_group_instances = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &uniform_bind_group_layout_instances,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::Buffer(instance_buffer.slice(..)),
+                    },
+                ],
+                label: Some("uniform_bind_group_instances"),
+            });
+        };
+
+        create_instance_buffer_and_bindgroup(mesh_grass, instances_grass);
+        create_instance_buffer_and_bindgroup(mesh_dirt, instances_dirt);
+        create_instance_buffer_and_bindgroup(mesh_stone, instances_stone);
+
+        ////////////////////////////
+
+        /*
         let instance_data = instances_grass.iter().map(Instance::to_raw).collect::<Vec<_>>();
         let mesh_dirt.instances = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
@@ -506,7 +550,7 @@ impl Model {
             contents: bytemuck::cast_slice(&instance_data),
             usage: wgpu::BufferUsage::STORAGE,
         });
-
+        */
         meshes.push(mesh_grass);
         meshes.push(mesh_dirt);
         meshes.push(mesh_stone);
