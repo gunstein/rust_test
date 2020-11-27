@@ -15,6 +15,7 @@ log = "0.4"
 tobj = "2.0"
 wgpu = "0.6"
 winit = "0.22"
+rand = "0.7.3"
 
 [build-dependencies]
 anyhow = "1.0"

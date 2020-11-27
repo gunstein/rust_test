@@ -489,36 +489,45 @@ impl Model {
             }
         }
 
+        let uniform_bind_group_layout_instances =
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::VERTEX,
+                    ty: wgpu::BindingType::StorageBuffer {
+                        // We don't plan on changing the size of this buffer
+                        dynamic: false,
+                        // The shader is not allowed to modify it's contents
+                        readonly: true,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+            label: Some("uniform_bind_group_layout_instances"),
+        });
+
+        let uniform_bind_group_instances = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &uniform_bind_group_layout_instances,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(instance_buffer.slice(..)),
+                },
+            ],
+            label: Some("uniform_bind_group_instances"),
+        });
+        
         let create_instance_buffer_and_bindgroup = |mesh, instances| {
-            let instance_data = instances_grass.iter().map(Instance::to_raw).collect::<Vec<_>>();
-            let mesh.instances_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
+            mesh.instances_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Instance Buffer"),
                 contents: bytemuck::cast_slice(&instance_data),
                 usage: wgpu::BufferUsage::STORAGE,
             });
-            
-
-            let uniform_bind_group_layout_instances =
-                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    entries: &[/
-                        // NEW!
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: wgpu::ShaderStage::VERTEX,
-                            ty: wgpu::BindingType::StorageBuffer {
-                                // We don't plan on changing the size of this buffer
-                                dynamic: false,
-                                // The shader is not allowed to modify it's contents
-                                readonly: true,
-                                min_binding_size: None,
-                            },
-                            count: None,
-                        },
-                    ],
-                    label: Some("uniform_bind_group_layout_instances"),
-                });
-    
-            let mesh.uniform_bind_group_instances = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                
+            mesh.uniform_bind_group_instances = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout: &uniform_bind_group_layout_instances,
                 entries: &[
                     wgpu::BindGroupEntry {
