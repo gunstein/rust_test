@@ -91,9 +91,9 @@ struct State {
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
-    instances: Vec<Instance>,
+    //instances: Vec<Instance>,
     #[allow(dead_code)]
-    instance_buffer: wgpu::Buffer,
+    //instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
     size: winit::dpi::PhysicalSize<u32>,
     light: Light,
@@ -334,15 +334,15 @@ impl State {
             label: Some("uniform_bind_group"),
         });
 
-        let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
-        let now = std::time::Instant::now();
-        let obj_model = model::Model::load(
+        //let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
+        let now = std::time::Instant::now(); 
+        let mut obj_model = model::Model::new().unwrap();
+        obj_model.load(
             &device,
             &queue,
             &texture_bind_group_layout,
-            res_dir.join("cube.obj"),
-        )
-        .unwrap();
+            //res_dir.join("cube.obj"),
+        );
         println!("Elapsed (Original): {:?}", std::time::Instant::now() - now);
 
         let light = Light {
@@ -447,7 +447,7 @@ impl State {
                 &device,
                 "alt-material",
                 diffuse_texture,
-                normal_texture,
+                //normal_texture,
                 &texture_bind_group_layout,
             )
         };
@@ -466,8 +466,8 @@ impl State {
             uniform_buffer,
             uniform_bind_group,
             uniforms,
-            instances,
-            instance_buffer,
+            //instances,
+            //instance_buffer,
             depth_texture,
             size,
             light,
@@ -598,7 +598,7 @@ impl State {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.draw_model_instanced(
                 &self.obj_model,
-                0..self.instances.len() as u32,
+                //0..self.instances.len() as u32,
                 &self.uniform_bind_group,
                 &self.light_bind_group,
             );

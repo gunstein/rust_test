@@ -9,6 +9,9 @@ use rand::Rng;
 
 use std::collections::HashMap;
 
+use cgmath::Vector3;
+use cgmath::Vector2;
+
 pub trait Vertex {
     fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a>;
 }
@@ -18,9 +21,9 @@ pub trait Vertex {
 pub struct ModelVertex {
     position: cgmath::Vector3<f32>,
     tex_coords: cgmath::Vector2<f32>,
-    normal: cgmath::Vector3<f32>,
-    tangent: cgmath::Vector3<f32>,
-    bitangent: cgmath::Vector3<f32>,
+    //normal: cgmath::Vector3<f32>,
+    //tangent: cgmath::Vector3<f32>,
+    //bitangent: cgmath::Vector3<f32>,
 }
 
 unsafe impl bytemuck::Zeroable for ModelVertex {}
@@ -67,7 +70,7 @@ impl Vertex for ModelVertex {
 pub struct Material {
     pub name: String,
     pub diffuse_texture: texture::Texture,
-    pub normal_texture: texture::Texture,
+    //pub normal_texture: texture::Texture,
     pub bind_group: wgpu::BindGroup,
 }
 
@@ -76,7 +79,7 @@ impl Material {
         device: &wgpu::Device,
         name: &str,
         diffuse_texture: texture::Texture,
-        normal_texture: texture::Texture,
+        //normal_texture: texture::Texture,
         layout: &wgpu::BindGroupLayout,
     ) -> Self {
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -90,6 +93,7 @@ impl Material {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
                 },
+                /*
                 wgpu::BindGroupEntry {
                     binding: 2,
                     resource: wgpu::BindingResource::TextureView(&normal_texture.view),
@@ -97,7 +101,7 @@ impl Material {
                 wgpu::BindGroupEntry {
                     binding: 3,
                     resource: wgpu::BindingResource::Sampler(&normal_texture.sampler),
-                },
+                },*/
             ],
             label: Some(name),
         });
@@ -105,33 +109,24 @@ impl Material {
         Self {
             name: String::from(name),
             diffuse_texture,
-            normal_texture,
+            //normal_texture,
             bind_group,
         }
     }
 }
 
-
+#[derive(Debug)]
 pub struct Mesh {
-    pub name: String,
+    //pub name: String,
     pub blocktype: BlockType,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub num_indexes: u32,
-    pub material: usize,
+    //pub material: usize,
     pub instances_buffer: wgpu::Buffer,
     pub uniform_bind_group_instances: wgpu::BindGroup,
     pub num_instances: u32,
 }
-
-pub struct Model {
-    pub meshes: Vec<Mesh>,
-    pub materials: Vec<Material>,
-
-    pub world : World,
-
-}
-
 
 pub struct World{
     pub chunks: HashMap<[u8;3], Chunk>,
@@ -204,8 +199,16 @@ struct InstanceRaw {
     model: cgmath::Matrix4<f32>,
 }
 
+pub struct Model {
+    pub meshes: Vec<Mesh>,
+    //pub materials: Vec<Material>,
+    pub material: Option<Material>,
+    pub world : World,
+
+}
+
 impl Model {
-    pub fn build_random_chunk()->Chunk
+    fn build_random_chunk(&self)->Chunk
     {
         //Generate random chunk
         let mut chunk = Chunk{ blocks : HashMap::new(),};
@@ -226,8 +229,8 @@ impl Model {
     }
 
 
-    fn create_vertices(blocktype:BlockType) -> Vec<Vertex>{//(Vec<Vertex>, Vec<u16>) {
-        fn build_vertex(position:[i8;3], quadtype:QuadType, u:UV, v:UV)->Vertex
+    fn create_vertices(&self, blocktype:BlockType) -> Vec<ModelVertex>{//(Vec<Vertex>, Vec<u16>) {
+        fn build_vertex(position:[i8;3], quadtype:QuadType, u:UV, v:UV)->ModelVertex
         {
             let mut umap: HashMap<UVQuadKey, f32> = HashMap::new();
             umap.insert(UVQuadKey{quadtype:QuadType::GRASS_TOP, uv:UV::MIN}, 0.125); umap.insert(UVQuadKey{quadtype:QuadType::GRASS_TOP, uv:UV::MAX}, 0.1875);
@@ -247,9 +250,11 @@ impl Model {
                     let v_pos = vmap.get(&UVQuadKey{quadtype:quadtype, uv:v});
                     match v_pos {
                         Some(j) => {
-                            let gvtestpos:[f32;3]=[position[0] as f32, position[1] as f32, position[2] as f32];
+                            //let gvtestpos:[f32;3]=[position[0] as f32, position[1] as f32, position[2] as f32];
+                            let pos = Vector3::new(position[0] as f32, position[1] as f32, position[2] as f32);
+                            let tex = Vector2::new(Clone::clone(u_pos.unwrap()), 1.0-Clone::clone(v_pos.unwrap()));
                             //Vertex{position:position, tex_coords:[Clone::clone(u_pos.unwrap()), Clone::clone(v_pos.unwrap())]}
-                            Vertex{position:gvtestpos, tex_coords:[Clone::clone(u_pos.unwrap()), 1.0-Clone::clone(v_pos.unwrap())]}
+                            ModelVertex{position:pos, tex_coords:tex}
                         },
                         None => panic!("two"),
                     }
@@ -265,7 +270,7 @@ impl Model {
             quadtype = QuadType::DIRT;
         }
         
-        let mut vertex_data: Vec<Vertex>= Vec::new();
+        let mut vertex_data: Vec<ModelVertex>= Vec::new();
         
     
         // top (0, 0, 1)
@@ -355,16 +360,23 @@ impl Model {
         vertex_data
     }
     
-    pub fn load<P: AsRef<Path>>(
+    pub fn new()-> Result<Self>{
+        Ok(Self { meshes: Vec::new(), material:none, world: World{chunks:HashMap::new()} })
+    }
+
+    //pub fn load<P: AsRef<Path>>(
+    pub fn load(
+        &self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         layout: &wgpu::BindGroupLayout,
-        path: P,
-    ) -> Result<Self> {
-
-        let VERTICES_GRASS = create_vertices(BlockType::GRASS);
-        let VERTICES_STONE = create_vertices(BlockType::STONE);
-        let VERTICES_DIRT = create_vertices(BlockType::DIRT);
+        //path: P,
+    ){
+        /*
+        let VERTICES_GRASS = self.create_vertices(BlockType::GRASS);
+        let VERTICES_STONE = self.create_vertices(BlockType::STONE);
+        let VERTICES_DIRT = self.create_vertices(BlockType::DIRT);
+        */
 
         /*
         let (obj_models, obj_materials) = tobj::load_obj(path.as_ref(), true)?;
@@ -392,31 +404,121 @@ impl Model {
         }
         */
         //load material
-        let mut materials = Vec::new();
+        //let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
+        //res_dir.join("cube.obj")
+        //let mut materials = Vec::new();
         let diffuse_bytes = include_bytes!("blockatlas.jpg");
         let diffuse_texture =
-            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "blockatlas.jpg").unwrap();
-        materials.push(Material::new(
+            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "blockatlas.jpg", false).unwrap();
+        material = Some(Material::new(
             device,
-            &mat.name,
+            "blockatlas",
             diffuse_texture,
-            normal_texture,
+            //normal_texture,
             layout,
         ));
 
         //build world
-        let mut world = World{chunks:HashMap::new()};
+        //let mut world = World{chunks:HashMap::new()};
         //First chunk,
         //trenger flere sef
-        world.chunks.insert( [0, 0, 0], build_random_chunk);
+        world.chunks.insert( [0, 0, 0], self.build_random_chunk());
 
         //Go through world and build meshes. One mesh for each blocktype
-        let mut mesh_grass = Mesh{blocktype : BlockType::GRASS, num_elements : CUBE_INDICES.len()};
-        let mut mesh_dirt = Mesh{blocktype : BlockType::DIRT, num_elements : CUBE_INDICES.len()};
-        let mut mesh_stone = Mesh{blocktype : BlockType::STONE, num_elements : CUBE_INDICES.len()};
+        let create_mesh_and_addto_model = |blocktype| {
+            let vertices = self.create_vertices(blocktype);
+            let  vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(&vertices),
+                usage: wgpu::BufferUsage::VERTEX,
+            });
+            let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Index Buffer"),
+                contents: bytemuck::cast_slice(CUBE_INDICES),
+                usage: wgpu::BufferUsage::INDEX,
+            });
+            
+            let create_instance = |x, y, z| {
+                let position = cgmath::Vector3 {
+                    x: x as f32,
+                    y: y as f32,
+                    z: z as f32,
+                };
+                Instance { position }
+            };
+
+            let mut instances:Vec<Instance>=Vec::new();
+            for (chunkkey, chunk) in &world.chunks {
+                for (blockkey, block) in &chunk.blocks {
+                    //transler til rett plass. Må ta hensyn til flere chunks.
+                    let x = (chunkkey[0] * CHUNKSIZE ) + blockkey[0];
+                    let y = (chunkkey[1] * CHUNKSIZE ) + blockkey[1];
+                    let z = (chunkkey[2] * CHUNKSIZE ) + blockkey[2];
+
+                    instances.push(create_instance(x as f32, y as f32, z as f32));
+                }
+            }
+
+            let uniform_bind_group_layout_instances =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStage::VERTEX,
+                        ty: wgpu::BindingType::StorageBuffer {
+                            // We don't plan on changing the size of this buffer
+                            dynamic: false,
+                            // The shader is not allowed to modify it's contents
+                            readonly: true,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+                label: Some("uniform_bind_group_layout_instances"),
+            });
+    
+            let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
+            let instances_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Instance Buffer"),
+                contents: bytemuck::cast_slice(&instance_data),
+                usage: wgpu::BufferUsage::STORAGE,
+            });
+                
+            let uniform_bind_group_instances = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &uniform_bind_group_layout_instances,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::Buffer(self.instance_buffer.slice(..)),
+                    },
+                ],
+                label: Some("uniform_bind_group_instances"),
+            }); 
+            
+            meshes.push(Mesh{
+                blocktype: blocktype, 
+                vertex_buffer: vertex_buffer,
+                index_buffer: index_buffer,
+                num_indexes: CUBE_INDICES.len(),
+                instances_buffer: instances_buffer,
+                uniform_bind_group_instances: uniform_bind_group_instances,
+                num_instances: instances.len()
+            });
+        }
+
+
+   
+
+        /*
+        let mut mesh_grass = Mesh{blocktype : BlockType::GRASS, num_indexes : CUBE_INDICES.len() as u32};
+        let mut mesh_dirt = Mesh{blocktype : BlockType::DIRT, num_indexes : CUBE_INDICES.len() as u32};
+        let mut mesh_stone = Mesh{blocktype : BlockType::STONE, num_indexes : CUBE_INDICES.len() as u32};
+        */
 
         //Siden vi bruker instancing er vertexene allerede bygget
         //mesh_grass.vertex_buffer=VERTICES_GRASS Se hvordan dette er gjort i instances-programmet (f.eks)
+        /*
         mesh_grass.vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(&VERTICES_GRASS),
@@ -434,8 +536,10 @@ impl Model {
             contents: bytemuck::cast_slice(&VERTICES_STONE),
             usage: wgpu::BufferUsage::VERTEX,
         });
+        */
 
         //mesh*.index_buffer=CUBE_INDICES
+        /*
         mesh_grass.index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
             contents: bytemuck::cast_slice(CUBE_INDICES),
@@ -453,11 +557,14 @@ impl Model {
             contents: bytemuck::cast_slice(CUBE_INDICES),
             usage: wgpu::BufferUsage::INDEX,
         });
+        */
 
         //mesh*.instances må genereres basert på world
+        /*
         let mut instances_grass:Vec<Instance>=Vec::new();
         let mut instances_dirt:Vec<Instance>=Vec::new();
         let mut instances_stone:Vec<Instance>=Vec::new();   
+
 
         let create_instance = |x, y, z| {
             let position = cgmath::Vector3 {
@@ -467,7 +574,8 @@ impl Model {
             };
             Instance { position }
         };
-
+        */
+        /*
         for (chunkkey, chunk) in &world.chunks {
             for (blockkey, block) in &chunk.blocks {
                 //transler til rett plass. Må ta hensyn til flere chunks.
@@ -488,7 +596,9 @@ impl Model {
                 }
             }
         }
+        */
 
+        /*
         let uniform_bind_group_layout_instances =
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
@@ -513,12 +623,14 @@ impl Model {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::Buffer(instance_buffer.slice(..)),
+                    resource: wgpu::BindingResource::Buffer(self.instance_buffer.slice(..)),
                 },
             ],
             label: Some("uniform_bind_group_instances"),
         });
-        
+        */
+
+        /*
         let create_instance_buffer_and_bindgroup = |mesh, instances| {
             let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
             mesh.instances_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -532,7 +644,7 @@ impl Model {
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: wgpu::BindingResource::Buffer(instance_buffer.slice(..)),
+                        resource: wgpu::BindingResource::Buffer(self.instance_buffer.slice(..)),
                     },
                 ],
                 label: Some("uniform_bind_group_instances"),
@@ -542,6 +654,8 @@ impl Model {
         create_instance_buffer_and_bindgroup(mesh_grass, instances_grass);
         create_instance_buffer_and_bindgroup(mesh_dirt, instances_dirt);
         create_instance_buffer_and_bindgroup(mesh_stone, instances_stone);
+        */
+
 
         ////////////////////////////
 
@@ -560,9 +674,14 @@ impl Model {
             usage: wgpu::BufferUsage::STORAGE,
         });
         */
-        meshes.push(mesh_grass);
-        meshes.push(mesh_dirt);
-        meshes.push(mesh_stone);
+
+        /*
+        let mut meshes = Vec::new();
+
+        self.meshes.push(mesh_grass);
+        self.meshes.push(mesh_dirt);
+        self.meshes.push(mesh_stone);
+        */
 
         /*
         let mut meshes = Vec::new();
@@ -657,7 +776,7 @@ impl Model {
             
         }*/
 
-        Ok(Self { meshes, materials })
+        //Ok(Self { meshes, materials })
     }
 }
 
@@ -676,7 +795,7 @@ where
         &mut self,
         mesh: &'b Mesh,
         material: &'b Material,
-        instances: Range<u32>,
+        //instances: Range<u32>,
         uniforms: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
     );
@@ -690,7 +809,7 @@ where
     fn draw_model_instanced(
         &mut self,
         model: &'b Model,
-        instances: Range<u32>,
+        //instances: Range<u32>,
         uniforms: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
     );
@@ -698,7 +817,7 @@ where
         &mut self,
         model: &'b Model,
         material: &'b Material,
-        instances: Range<u32>,
+        //instances: Range<u32>,
         uniforms: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
     );
@@ -722,7 +841,7 @@ where
         &mut self,
         mesh: &'b Mesh,
         material: &'b Material,
-        instances: Range<u32>,
+        //instances: Range<u32>,
         uniforms: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
     ) {
@@ -731,7 +850,9 @@ where
         self.set_bind_group(0, &material.bind_group, &[]);
         self.set_bind_group(1, &uniforms, &[]);
         self.set_bind_group(2, &light, &[]);
-        self.draw_indexed(0..mesh.num_elements, 0, instances);
+        //self.draw_indexed(0..mesh.num_elements, 0, instances);
+        self.draw_indexed(0..mesh.num_elements, 0, 0..mesh.num_instances);
+        
     }
 
     fn draw_model(
@@ -746,13 +867,13 @@ where
     fn draw_model_instanced(
         &mut self,
         model: &'b Model,
-        instances: Range<u32>,
+        //instances: Range<u32>,
         uniforms: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
     ) {
         for mesh in &model.meshes {
             let material = &model.materials[mesh.material];
-            self.draw_mesh_instanced(mesh, material, instances.clone(), uniforms, light);
+            self.draw_mesh_instanced(mesh, material/*, instances.clone()*/, uniforms, light);
         }
     }
 
@@ -760,12 +881,12 @@ where
         &mut self,
         model: &'b Model,
         material: &'b Material,
-        instances: Range<u32>,
+        //instances: Range<u32>,
         uniforms: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
     ) {
         for mesh in &model.meshes {
-            self.draw_mesh_instanced(mesh, material, instances.clone(), uniforms, light);
+            self.draw_mesh_instanced(mesh, material, /*instances.clone(),*/ uniforms, light);
         }
     }
 }
