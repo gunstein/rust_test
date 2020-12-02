@@ -141,7 +141,7 @@ pub enum QuadType {
     STONE,
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum BlockType {
     GRASS,
     DIRT,
@@ -198,6 +198,9 @@ impl Instance {
 struct InstanceRaw {
     model: cgmath::Matrix4<f32>,
 }
+
+unsafe impl bytemuck::Pod for InstanceRaw {}
+unsafe impl bytemuck::Zeroable for InstanceRaw {}
 
 pub struct Model {
     pub meshes: Vec<Mesh>,
@@ -361,12 +364,12 @@ impl Model {
     }
     
     pub fn new()-> Result<Self>{
-        Ok(Self { meshes: Vec::new(), material:none, world: World{chunks:HashMap::new()} })
+        Ok(Self { meshes: Vec::new(), material:None, world: World{chunks:HashMap::new()} })
     }
 
     //pub fn load<P: AsRef<Path>>(
     pub fn load(
-        &self,
+        &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         layout: &wgpu::BindGroupLayout,
@@ -410,7 +413,7 @@ impl Model {
         let diffuse_bytes = include_bytes!("blockatlas.jpg");
         let diffuse_texture =
             texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "blockatlas.jpg", false).unwrap();
-        material = Some(Material::new(
+        self.material = Some(Material::new(
             device,
             "blockatlas",
             diffuse_texture,
@@ -422,10 +425,10 @@ impl Model {
         //let mut world = World{chunks:HashMap::new()};
         //First chunk,
         //trenger flere sef
-        world.chunks.insert( [0, 0, 0], self.build_random_chunk());
+        self.world.chunks.insert( [0, 0, 0], self.build_random_chunk());
 
         //Go through world and build meshes. One mesh for each blocktype
-        let create_mesh_and_addto_model = |blocktype| {
+        let mut create_mesh_and_addto_model = |blocktype| {
             let vertices = self.create_vertices(blocktype);
             let  vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex Buffer"),
@@ -448,7 +451,7 @@ impl Model {
             };
 
             let mut instances:Vec<Instance>=Vec::new();
-            for (chunkkey, chunk) in &world.chunks {
+            for (chunkkey, chunk) in &self.world.chunks {
                 for (blockkey, block) in &chunk.blocks {
                     //transler til rett plass. Må ta hensyn til flere chunks.
                     let x = (chunkkey[0] * CHUNKSIZE ) + blockkey[0];
@@ -490,24 +493,28 @@ impl Model {
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: wgpu::BindingResource::Buffer(self.instance_buffer.slice(..)),
+                        resource: wgpu::BindingResource::Buffer(instances_buffer.slice(..)),
                     },
                 ],
                 label: Some("uniform_bind_group_instances"),
             }); 
             
-            meshes.push(Mesh{
+            self.meshes.push(Mesh{
                 blocktype: blocktype, 
                 vertex_buffer: vertex_buffer,
                 index_buffer: index_buffer,
-                num_indexes: CUBE_INDICES.len(),
+                num_indexes: CUBE_INDICES.len() as u32,
                 instances_buffer: instances_buffer,
                 uniform_bind_group_instances: uniform_bind_group_instances,
-                num_instances: instances.len()
+                num_instances: instances.len() as u32
             });
-        }
 
 
+        };
+
+        create_mesh_and_addto_model(BlockType::GRASS);
+        create_mesh_and_addto_model(BlockType::DIRT);
+        create_mesh_and_addto_model(BlockType::STONE);
    
 
         /*
@@ -816,7 +823,7 @@ where
     fn draw_model_instanced_with_material(
         &mut self,
         model: &'b Model,
-        material: &'b Material,
+        //material: &'b Material,
         //instances: Range<u32>,
         uniforms: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
@@ -834,7 +841,7 @@ where
         uniforms: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
     ) {
-        self.draw_mesh_instanced(mesh, material, 0..1, uniforms, light);
+        self.draw_mesh_instanced(mesh, material, /*0..1,*/ uniforms, light);
     }
 
     fn draw_mesh_instanced(
@@ -851,7 +858,7 @@ where
         self.set_bind_group(1, &uniforms, &[]);
         self.set_bind_group(2, &light, &[]);
         //self.draw_indexed(0..mesh.num_elements, 0, instances);
-        self.draw_indexed(0..mesh.num_elements, 0, 0..mesh.num_instances);
+        self.draw_indexed(0..mesh.num_indexes, 0, 0..mesh.num_instances);
         
     }
 
@@ -861,7 +868,7 @@ where
         uniforms: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
     ) {
-        self.draw_model_instanced(model, 0..1, uniforms, light);
+        self.draw_model_instanced(model, /*0..1,*/ uniforms, light);
     }
 
     fn draw_model_instanced(
@@ -871,22 +878,25 @@ where
         uniforms: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
     ) {
+        let material = model.material.as_ref().unwrap();
         for mesh in &model.meshes {
-            let material = &model.materials[mesh.material];
-            self.draw_mesh_instanced(mesh, material/*, instances.clone()*/, uniforms, light);
+            //let material = &model.materials[mesh.material];
+            
+            self.draw_mesh_instanced(mesh, &material/*, instances.clone()*/, uniforms, light);
         }
     }
 
     fn draw_model_instanced_with_material(
         &mut self,
         model: &'b Model,
-        material: &'b Material,
-        //instances: Range<u32>,
+        //material: &'b Material,
+        //instances: Range<u32>,Copy, Clone
         uniforms: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
     ) {
+        let material = model.material.as_ref().unwrap();
         for mesh in &model.meshes {
-            self.draw_mesh_instanced(mesh, material, /*instances.clone(),*/ uniforms, light);
+            self.draw_mesh_instanced(mesh, &material, /*instances.clone(),*/ uniforms, light);
         }
     }
 }
@@ -949,7 +959,7 @@ where
         self.set_index_buffer(mesh.index_buffer.slice(..));
         self.set_bind_group(0, uniforms, &[]);
         self.set_bind_group(1, light, &[]);
-        self.draw_indexed(0..mesh.num_elements, 0, instances);
+        self.draw_indexed(0..mesh.num_indexes, 0, instances);
     }
 
     fn draw_light_model(
