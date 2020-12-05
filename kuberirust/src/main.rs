@@ -42,6 +42,7 @@ impl Uniforms {
 unsafe impl bytemuck::Zeroable for Uniforms {}
 unsafe impl bytemuck::Pod for Uniforms {}
 
+/*
 struct Instance {
     position: cgmath::Vector3<f32>,
     rotation: cgmath::Quaternion<f32>,
@@ -64,6 +65,7 @@ struct InstanceRaw {
 
 unsafe impl bytemuck::Pod for InstanceRaw {}
 unsafe impl bytemuck::Zeroable for InstanceRaw {}
+*/
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -94,14 +96,14 @@ struct State {
     //instances: Vec<Instance>,
     #[allow(dead_code)]
     //instance_buffer: wgpu::Buffer,
-    depth_texture: texture::Texture,
+    //depth_texture: texture::Texture,
     size: winit::dpi::PhysicalSize<u32>,
-    light: Light,
-    light_buffer: wgpu::Buffer,
-    light_bind_group: wgpu::BindGroup,
-    light_render_pipeline: wgpu::RenderPipeline,
+    //light: Light,
+    //light_buffer: wgpu::Buffer,
+    //light_bind_group: wgpu::BindGroup,
+    //light_render_pipeline: wgpu::RenderPipeline,
     #[allow(dead_code)]
-    debug_material: model::Material,
+    //debug_material: model::Material,
     // NEW!
     last_mouse_pos: PhysicalPosition<f64>,
     mouse_pressed: bool,
@@ -145,12 +147,15 @@ fn create_render_pipeline(
             alpha_blend: wgpu::BlendDescriptor::REPLACE,
             write_mask: wgpu::ColorWrite::ALL,
         }],
+        depth_stencil_state: None,
+        /*
         depth_stencil_state: depth_format.map(|format| wgpu::DepthStencilStateDescriptor {
             format,
             depth_write_enabled: true,
             depth_compare: wgpu::CompareFunction::Less,
             stencil: wgpu::StencilStateDescriptor::default(),
         }),
+        */
         sample_count: 1,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
@@ -218,6 +223,7 @@ impl State {
                         count: None,
                     },
                     // normal map
+                    /*
                     wgpu::BindGroupLayoutEntry {
                         binding: 2,
                         visibility: wgpu::ShaderStage::FRAGMENT,
@@ -234,6 +240,7 @@ impl State {
                         ty: wgpu::BindingType::Sampler { comparison: false },
                         count: None,
                     },
+                    */
                 ],
                 label: Some("texture_bind_group_layout"),
             });
@@ -345,6 +352,7 @@ impl State {
         );
         println!("Elapsed (Original): {:?}", std::time::Instant::now() - now);
 
+        /*
         let light = Light {
             position: (2.0, 2.0, 2.0).into(),
             _padding: 0,
@@ -382,14 +390,14 @@ impl State {
 
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
-
+        */
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
                 bind_group_layouts: &[
                     &texture_bind_group_layout,
                     &uniform_bind_group_layout,
-                    &light_bind_group_layout,
+                    //&light_bind_group_layout,
                 ],
                 push_constant_ranges: &[],
             });
@@ -404,6 +412,7 @@ impl State {
             wgpu::include_spirv!("shader.frag.spv"),
         );
 
+        /*
         let light_render_pipeline = {
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Light Pipeline Layout"),
@@ -451,6 +460,7 @@ impl State {
                 &texture_bind_group_layout,
             )
         };
+        */
 
         Self {
             surface,
@@ -468,14 +478,14 @@ impl State {
             uniforms,
             //instances,
             //instance_buffer,
-            depth_texture,
+            //depth_texture,
             size,
-            light,
-            light_buffer,
-            light_bind_group,
-            light_render_pipeline,
+            //light,
+            //light_buffer,
+            //light_bind_group,
+            //light_render_pipeline,
             #[allow(dead_code)]
-            debug_material,
+            //debug_material,
             // NEW!
             last_mouse_pos: (0.0, 0.0).into(),
             mouse_pressed: false,
@@ -489,8 +499,8 @@ impl State {
         self.sc_desc.width = new_size.width;
         self.sc_desc.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
-        self.depth_texture =
-            texture::Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
+        //self.depth_texture =
+        //    texture::Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
     }
 
     // UPDATED!
@@ -542,12 +552,14 @@ impl State {
         );
 
         // Update the light
+        /*
         let old_position = self.light.position;
         self.light.position =
             cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), cgmath::Deg(1.0))
                 * old_position;
         self.queue
             .write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&[self.light]));
+            */
     }
 
     fn render(&mut self) {
@@ -578,29 +590,31 @@ impl State {
                         store: true,
                     },
                 }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                depth_stencil_attachment: None,
+                /*depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
                     attachment: &self.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
                         store: true,
                     }),
                     stencil_ops: None,
-                }),
+                }),*/
             });
 
+            /*
             render_pass.set_pipeline(&self.light_render_pipeline);
             render_pass.draw_light_model(
                 &self.obj_model,
                 &self.uniform_bind_group,
                 &self.light_bind_group,
             );
-
+            */
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.draw_model_instanced(
                 &self.obj_model,
                 //0..self.instances.len() as u32,
                 &self.uniform_bind_group,
-                &self.light_bind_group,
+                //&self.light_bind_group,
             );
         }
         self.queue.submit(iter::once(encoder.finish()));

@@ -46,6 +46,7 @@ impl Vertex for ModelVertex {
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float2,
                 },
+                /*
                 wgpu::VertexAttributeDescriptor {
                     offset: mem::size_of::<[f32; 5]>() as wgpu::BufferAddress,
                     shader_location: 2,
@@ -62,6 +63,7 @@ impl Vertex for ModelVertex {
                     shader_location: 4,
                     format: wgpu::VertexFormat::Float3,
                 },
+                */
             ],
         }
     }
@@ -156,7 +158,7 @@ pub struct Chunk {
     pub blocks: HashMap<[u8;3], Block>,
 }
 
-const CHUNKSIZE: u8 = 16;
+const CHUNKSIZE: u8 = 3;
 
 #[derive(PartialEq, Eq, Hash)]
 pub enum UV {
@@ -483,7 +485,7 @@ where
         mesh: &'b Mesh,
         material: &'b Material,
         uniforms: &'b wgpu::BindGroup,
-        light: &'b wgpu::BindGroup,
+        //light: &'b wgpu::BindGroup,
     );
     fn draw_mesh_instanced(
         &mut self,
@@ -491,21 +493,21 @@ where
         material: &'b Material,
         //instances: Range<u32>,
         uniforms: &'b wgpu::BindGroup,
-        light: &'b wgpu::BindGroup,
+        //light: &'b wgpu::BindGroup,
     );
 
     fn draw_model(
         &mut self,
         model: &'b Model,
         uniforms: &'b wgpu::BindGroup,
-        light: &'b wgpu::BindGroup,
+        //light: &'b wgpu::BindGroup,
     );
     fn draw_model_instanced(
         &mut self,
         model: &'b Model,
         //instances: Range<u32>,
         uniforms: &'b wgpu::BindGroup,
-        light: &'b wgpu::BindGroup,
+        //light: &'b wgpu::BindGroup,
     );
     fn draw_model_instanced_with_material(
         &mut self,
@@ -513,7 +515,7 @@ where
         //material: &'b Material,
         //instances: Range<u32>,
         uniforms: &'b wgpu::BindGroup,
-        light: &'b wgpu::BindGroup,
+        //light: &'b wgpu::BindGroup,
     );
 }
 
@@ -526,9 +528,9 @@ where
         mesh: &'b Mesh,
         material: &'b Material,
         uniforms: &'b wgpu::BindGroup,
-        light: &'b wgpu::BindGroup,
+        //light: &'b wgpu::BindGroup,
     ) {
-        self.draw_mesh_instanced(mesh, material, /*0..1,*/ uniforms, light);
+        self.draw_mesh_instanced(mesh, material, /*0..1,*/ uniforms/*, light*/);
     }
 
     fn draw_mesh_instanced(
@@ -537,13 +539,13 @@ where
         material: &'b Material,
         //instances: Range<u32>,
         uniforms: &'b wgpu::BindGroup,
-        light: &'b wgpu::BindGroup,
+        //light: &'b wgpu::BindGroup,
     ) {
         self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
         self.set_index_buffer(mesh.index_buffer.slice(..));
         self.set_bind_group(0, &material.bind_group, &[]);
         self.set_bind_group(1, &uniforms, &[]);
-        self.set_bind_group(2, &light, &[]);
+        //self.set_bind_group(2, &light, &[]);
         //self.draw_indexed(0..mesh.num_elements, 0, instances);
         self.draw_indexed(0..mesh.num_indexes, 0, 0..mesh.num_instances);
         
@@ -553,9 +555,9 @@ where
         &mut self,
         model: &'b Model,
         uniforms: &'b wgpu::BindGroup,
-        light: &'b wgpu::BindGroup,
+        //light: &'b wgpu::BindGroup,
     ) {
-        self.draw_model_instanced(model, /*0..1,*/ uniforms, light);
+        self.draw_model_instanced(model, /*0..1,*/ uniforms/*, light*/);
     }
 
     fn draw_model_instanced(
@@ -563,13 +565,13 @@ where
         model: &'b Model,
         //instances: Range<u32>,
         uniforms: &'b wgpu::BindGroup,
-        light: &'b wgpu::BindGroup,
+        //light: &'b wgpu::BindGroup,
     ) {
         let material = model.material.as_ref().unwrap();
         for mesh in &model.meshes {
             //let material = &model.materials[mesh.material];
             
-            self.draw_mesh_instanced(mesh, &material/*, instances.clone()*/, uniforms, light);
+            self.draw_mesh_instanced(mesh, &material/*, instances.clone()*/, uniforms/*, light*/);
         }
     }
 
@@ -579,11 +581,11 @@ where
         //material: &'b Material,
         //instances: Range<u32>,Copy, Clone
         uniforms: &'b wgpu::BindGroup,
-        light: &'b wgpu::BindGroup,
+        //light: &'b wgpu::BindGroup,
     ) {
         let material = model.material.as_ref().unwrap();
         for mesh in &model.meshes {
-            self.draw_mesh_instanced(mesh, &material, /*instances.clone(),*/ uniforms, light);
+            self.draw_mesh_instanced(mesh, &material, /*instances.clone(),*/ uniforms/*, light*/);
         }
     }
 }
