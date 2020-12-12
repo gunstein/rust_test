@@ -379,6 +379,8 @@ impl Model {
             layout,
         ));
 
+        println!("gvtest load 1");
+        /*
         //build world
         //let mut world = World{chunks:HashMap::new()};
         //First chunk,
@@ -473,6 +475,7 @@ impl Model {
         create_mesh_and_addto_model(BlockType::GRASS);
         create_mesh_and_addto_model(BlockType::DIRT);
         create_mesh_and_addto_model(BlockType::STONE);
+        */
     }
 }
 

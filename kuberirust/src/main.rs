@@ -67,6 +67,7 @@ unsafe impl bytemuck::Pod for InstanceRaw {}
 unsafe impl bytemuck::Zeroable for InstanceRaw {}
 */
 
+/*
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 struct Light {
@@ -78,6 +79,7 @@ struct Light {
 
 unsafe impl bytemuck::Zeroable for Light {}
 unsafe impl bytemuck::Pod for Light {}
+*/
 
 struct State {
     surface: wgpu::Surface,
@@ -120,7 +122,10 @@ fn create_render_pipeline(
 ) -> wgpu::RenderPipeline {
     let vs_module = device.create_shader_module(vs_src);
     let fs_module = device.create_shader_module(fs_src);
-
+    println!("gvtestx : {:?}", vs_module);
+    println!("gvtestxx : {:?}", fs_module);
+    println!("gvtest layout: {:?}", layout);
+    
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("Render Pipeline"),
         layout: Some(&layout),
@@ -160,7 +165,8 @@ fn create_render_pipeline(
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
         vertex_state: wgpu::VertexStateDescriptor {
-            index_format: wgpu::IndexFormat::Uint32,
+            //index_format: wgpu::IndexFormat::Uint32,
+            index_format: wgpu::IndexFormat::Uint16,
             vertex_buffers: vertex_descs,
         },
     })
@@ -211,8 +217,10 @@ impl State {
                         visibility: wgpu::ShaderStage::FRAGMENT,
                         ty: wgpu::BindingType::SampledTexture {
                             multisampled: false,
-                            component_type: wgpu::TextureComponentType::Float,
+                            //component_type: wgpu::TextureComponentType::Float,
+                            //dimension: wgpu::TextureViewDimension::D2,
                             dimension: wgpu::TextureViewDimension::D2,
+                            component_type: wgpu::TextureComponentType::Uint,
                         },
                         count: None,
                     },
@@ -251,6 +259,8 @@ impl State {
             camera::Projection::new(sc_desc.width, sc_desc.height, cgmath::Deg(45.0), 0.1, 100.0);
         let camera_controller = camera::CameraController::new(4.0, 0.4);
 
+        println!("gvtest 1");
+
         let mut uniforms = Uniforms::new();
         uniforms.update_view_proj(&camera, &projection);
 
@@ -259,40 +269,8 @@ impl State {
             contents: bytemuck::cast_slice(&[uniforms]),
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
-        /*
-        const SPACE_BETWEEN: f32 = 3.0;
-        let instances = (0..NUM_INSTANCES_PER_ROW)
-            .flat_map(|z| {
-                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-
-                    let position = cgmath::Vector3 { x, y: 0.0, z };
-
-                    let rotation = if position.is_zero() {
-                        cgmath::Quaternion::from_axis_angle(
-                            cgmath::Vector3::unit_z(),
-                            cgmath::Deg(0.0),
-                        )
-                    } else {
-                        cgmath::Quaternion::from_axis_angle(
-                            position.clone().normalize(),
-                            cgmath::Deg(45.0),
-                        )
-                    };
-
-                    Instance { position, rotation }
-                })
-            })
-            .collect::<Vec<_>>();
-
-        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instance_data),
-            usage: wgpu::BufferUsage::STORAGE,
-        });
-        */
+            
+        println!("gvtest 2");
 
         let uniform_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -342,15 +320,19 @@ impl State {
         });
 
         //let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
+        println!("gvtest 3");
         let now = std::time::Instant::now(); 
         let mut obj_model = model::Model::new().unwrap();
+        /*
         obj_model.load(
             &device,
             &queue,
             &texture_bind_group_layout,
             //res_dir.join("cube.obj"),
         );
-        println!("Elapsed (Original): {:?}", std::time::Instant::now() - now);
+        */
+        println!("gvtest 4");
+        println!("Elapsed (Original): {:?}", std::time::Instant::now());
 
         /*
         let light = Light {
@@ -402,6 +384,7 @@ impl State {
                 push_constant_ranges: &[],
             });
 
+
         let render_pipeline = create_render_pipeline(
             &device,
             &render_pipeline_layout,
@@ -412,6 +395,7 @@ impl State {
             wgpu::include_spirv!("shader.frag.spv"),
         );
 
+        println!("gvtest 6");
         /*
         let light_render_pipeline = {
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -563,6 +547,7 @@ impl State {
     }
 
     fn render(&mut self) {
+        println!("gvtest render");
         let frame = self
             .swap_chain
             .get_current_frame()
