@@ -232,6 +232,8 @@ impl State {
             &texture_bind_group_layout,
             //res_dir.join("cube.obj"),
         );
+
+        println!("gvtest model: {:?}", obj_model);
         
         println!("gvtest 4");
         println!("Elapsed (Original): {:?}", std::time::Instant::now());        
@@ -250,7 +252,7 @@ impl State {
             &device,
             &render_pipeline_layout,
             sc_desc.format,
-            &[model::ModelVertex::desc()],
+            &[model::ModelVertex::desc(), model::InstanceRaw::desc()],
             wgpu::include_spirv!("shader.vert.spv"),
             wgpu::include_spirv!("shader.frag.spv"),
         );
@@ -371,7 +373,11 @@ impl State {
 fn main() {
     env_logger::init();
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
+    let title = env!("CARGO_PKG_NAME");
+    let window = winit::window::WindowBuilder::new()
+        .with_title(title)
+        .build(&event_loop)
+        .unwrap();
 
     use futures::executor::block_on;
 
@@ -380,6 +386,7 @@ fn main() {
     let mut last_render_time = std::time::Instant::now();
 
     event_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Poll;
         match event {
             Event::MainEventsCleared => window.request_redraw(),
             Event::DeviceEvent {
