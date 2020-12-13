@@ -36,9 +36,6 @@ impl Uniforms {
     }
 }
 
-
-
-
 struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -49,17 +46,16 @@ struct State {
     render_pipeline: wgpu::RenderPipeline,
     obj_model: model::Model,
     #[allow(dead_code)]
-    camera: camera::Camera,                      // UPDATED!
-    projection: camera::Projection,              // NEW!
-    camera_controller: camera::CameraController, // UPDATED!
+    camera: camera::Camera,                     
+    projection: camera::Projection,          
+    camera_controller: camera::CameraController, 
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
-    // NEW!
-    //instances: Vec<Instance>,
+
     #[allow(dead_code)]
-    //instance_buffer: wgpu::Buffer,
     mouse_pressed: bool,
+    depth_texture: texture::Texture,
 }
 
 fn create_render_pipeline(
@@ -72,10 +68,7 @@ fn create_render_pipeline(
 ) -> wgpu::RenderPipeline {
     let vs_module = device.create_shader_module(vs_src);
     let fs_module = device.create_shader_module(fs_src);
-    println!("gvtestx : {:?}", vs_module);
-    println!("gvtestxx : {:?}", fs_module);
-    println!("gvtest layout: {:?}", layout);
-    
+
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("Render Pipeline"),
         layout: Some(&layout),
@@ -102,15 +95,12 @@ fn create_render_pipeline(
             alpha_blend: wgpu::BlendDescriptor::REPLACE,
             write_mask: wgpu::ColorWrite::ALL,
         }],
-        depth_stencil_state: None,
-        /*
-        depth_stencil_state: depth_format.map(|format| wgpu::DepthStencilStateDescriptor {
-            format,
+        depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+            format: texture::Texture::DEPTH_FORMAT,
             depth_write_enabled: true,
             depth_compare: wgpu::CompareFunction::Less,
             stencil: wgpu::StencilStateDescriptor::default(),
-        }),
-        */
+        }),        
         sample_count: 1,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
@@ -157,11 +147,7 @@ impl State {
             present_mode: wgpu::PresentMode::Fifo,
         };
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
-
-        //let diffuse_bytes = include_bytes!("happy-tree.png");
-        //let diffuse_texture =
-        //    texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
-        
+       
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[
@@ -222,7 +208,6 @@ impl State {
             label: Some("uniform_bind_group"),
         });
 
-        println!("gvtest 3");
         let now = std::time::Instant::now(); 
         let mut obj_model = model::Model::new().unwrap();
         
@@ -230,12 +215,11 @@ impl State {
             &device,
             &queue,
             &texture_bind_group_layout,
-            //res_dir.join("cube.obj"),
         );
 
-        println!("gvtest model: {:?}", obj_model);
-        
-        println!("gvtest 4");
+        let depth_texture =
+        texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
+
         println!("Elapsed (Original): {:?}", std::time::Instant::now());        
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -256,8 +240,7 @@ impl State {
             wgpu::include_spirv!("shader.vert.spv"),
             wgpu::include_spirv!("shader.frag.spv"),
         );
-
-        println!("gvtest 6");            
+   
 
         Self {
             surface,
@@ -274,8 +257,8 @@ impl State {
             uniform_bind_group,
             uniforms,
             size,
-            // NEW!
             mouse_pressed: false,
+            depth_texture,
         }
     }
 
@@ -285,6 +268,8 @@ impl State {
         self.sc_desc.width = new_size.width;
         self.sc_desc.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
+        self.depth_texture =
+        texture::Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
     }
 
     fn input(&mut self, event: &DeviceEvent) -> bool {
@@ -352,7 +337,14 @@ impl State {
                         store: true,
                     },
                 }],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
