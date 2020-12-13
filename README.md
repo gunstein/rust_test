@@ -1,2 +1,2 @@
 # rust_test
-Testing rust
+Testing rust and webgpu
