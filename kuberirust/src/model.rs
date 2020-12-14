@@ -251,10 +251,14 @@ impl Model {
             for l in 0..CHUNKSIZE {
                 for m in 0..CHUNKSIZE {
                     let val = rng.gen_range(0, 10);
-                    if val<8
+                    if val < 3
                     {
                         //Add block
                         chunk.blocks.insert( [k, l, m], Block{blocktype:BlockType::GRASS});
+                    }
+                    else if val < 4
+                    {
+                        chunk.blocks.insert( [k, l, m], Block{blocktype:BlockType::STONE});
                     }
                 }
             }
@@ -263,7 +267,9 @@ impl Model {
     }
 
 
-    fn create_vertices(&self, blocktype:BlockType) -> Vec<ModelVertex>{//(Vec<Vertex>, Vec<u16>) {
+    fn create_vertices(&self, blocktype:BlockType) -> Vec<ModelVertex>{
+        //Build ModelVertex. Have to lookup u and v wich is dependent on QuadType. (this decides where to find in correct bitmap in blockatlas.jpg)
+        //TODO: move umap and vmap outside function and convert to closure
         fn build_vertex(position:[i8;3], quadtype:QuadType, u:UV, v:UV)->ModelVertex
         {
             let mut umap: HashMap<UVQuadKey, f32> = HashMap::new();
@@ -284,16 +290,14 @@ impl Model {
                     let v_pos = vmap.get(&UVQuadKey{quadtype:quadtype, uv:v});
                     match v_pos {
                         Some(j) => {
-                            //let gvtestpos:[f32;3]=[position[0] as f32, position[1] as f32, position[2] as f32];
                             let pos = Vector3::new(position[0] as f32, position[1] as f32, position[2] as f32);
                             let tex = Vector2::new(Clone::clone(u_pos.unwrap()), 1.0-Clone::clone(v_pos.unwrap()));
-                            //Vertex{position:position, tex_coords:[Clone::clone(u_pos.unwrap()), Clone::clone(v_pos.unwrap())]}
                             ModelVertex{position:pos, tex_coords:tex}
                         },
-                        None => panic!("two"),
+                        None => panic!("Key not found in vmap."),
                     }
                 },
-                None => panic!("one"),
+                None => panic!("Key not found in umap."),
             }
         }
     
@@ -306,7 +310,6 @@ impl Model {
         
         let mut vertex_data: Vec<ModelVertex>= Vec::new();
         
-    
         // top (0, 0, 1)
         let mut temp_quadtype:QuadType=quadtype;   
         if blocktype==BlockType::GRASS
@@ -410,17 +413,6 @@ impl Model {
 
         //Go through world and build meshes. One mesh for each blocktype
         let mut create_mesh_and_addto_model = |blocktype| {
-            let vertices = self.create_vertices(blocktype);
-            let  vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(&vertices),
-                usage: wgpu::BufferUsage::VERTEX,
-            });
-            let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(CUBE_INDICES),
-                usage: wgpu::BufferUsage::INDEX,
-            });
             let create_instance = |x, y, z| {
                 let position = cgmath::Vector3 {
                     x: x as f32,
@@ -430,45 +422,59 @@ impl Model {
                 Instance { position }
             };
 
-            //let mut instances:Vec<Instance>=Vec::new();
             let mut instances=Vec::new();
             for (chunkkey, chunk) in &self.world.chunks {
                 for (blockkey, block) in &chunk.blocks {
-                    //transler til rett plass. Må ta hensyn til flere chunks.
-                    let x = (chunkkey[0] * CHUNKSIZE ) + blockkey[0];
-                    let y = (chunkkey[1] * CHUNKSIZE ) + blockkey[1];
-                    let z = (chunkkey[2] * CHUNKSIZE ) + blockkey[2];
+                    if block.blocktype == blocktype
+                    {
+                        //transler til rett plass. Må ta hensyn til flere chunks.
+                        let x = (chunkkey[0] * CHUNKSIZE ) + blockkey[0];
+                        let y = (chunkkey[1] * CHUNKSIZE ) + blockkey[1];
+                        let z = (chunkkey[2] * CHUNKSIZE ) + blockkey[2];
 
-                    instances.push(create_instance(x as f32, y as f32, z as f32));
+                        instances.push(create_instance(x as f32, y as f32, z as f32));
+                    }
                 }
             }
-            println!("gvtest instances: {:?}", instances);
+            //println!("gvtest instances: {:?}", instances);
             let num_instances = instances.len() as u32;
-    
-            let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
-            let instances_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Instance Buffer"),
-                contents: bytemuck::cast_slice(&instance_data),
-                usage: wgpu::BufferUsage::VERTEX,
-            });
-            
-            self.meshes.push(Mesh{
-                blocktype: blocktype, 
-                vertex_buffer: vertex_buffer,
-                index_buffer: index_buffer,
-                num_indexes: CUBE_INDICES.len() as u32,
-                instances: instances,
-                instances_buffer: instances_buffer,
-                //uniform_bind_group_instances: uniform_bind_group_instances,
-                num_instances: num_instances,
-            });
-
-
+            if num_instances > 0
+            {
+                let vertices = self.create_vertices(blocktype);
+                let  vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Vertex Buffer"),
+                    contents: bytemuck::cast_slice(&vertices),
+                    usage: wgpu::BufferUsage::VERTEX,
+                });
+                let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Index Buffer"),
+                    contents: bytemuck::cast_slice(CUBE_INDICES),
+                    usage: wgpu::BufferUsage::INDEX,
+                });
+        
+                let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
+                let instances_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Instance Buffer"),
+                    contents: bytemuck::cast_slice(&instance_data),
+                    usage: wgpu::BufferUsage::VERTEX,
+                });
+                
+                self.meshes.push(Mesh{
+                    blocktype: blocktype, 
+                    vertex_buffer: vertex_buffer,
+                    index_buffer: index_buffer,
+                    num_indexes: CUBE_INDICES.len() as u32,
+                    instances: instances,
+                    instances_buffer: instances_buffer,
+                    //uniform_bind_group_instances: uniform_bind_group_instances,
+                    num_instances: num_instances,
+                });
+            }
         };
 
         create_mesh_and_addto_model(BlockType::GRASS);
-        //create_mesh_and_addto_model(BlockType::DIRT);
-        //create_mesh_and_addto_model(BlockType::STONE);
+        create_mesh_and_addto_model(BlockType::DIRT);
+        create_mesh_and_addto_model(BlockType::STONE);
         
     }
 }
