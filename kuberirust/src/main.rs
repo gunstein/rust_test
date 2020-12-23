@@ -6,11 +6,13 @@ use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
+    dpi::PhysicalPosition
 };
 
 mod model;
 mod texture;
 mod camera;
+mod mouse_picker;
 
 use model::{DrawModel, Vertex};
 
@@ -56,6 +58,9 @@ struct State {
     #[allow(dead_code)]
     mouse_pressed: bool,
     depth_texture: texture::Texture,
+
+    curr_cursor_pos: winit::dpi::PhysicalPosition<f64>,
+    //inv_view_proj: cgmath::Matrix4<f32>,
 }
 
 fn create_render_pipeline(
@@ -178,6 +183,7 @@ impl State {
 
         let mut uniforms = Uniforms::new();
         uniforms.update_view_proj(&camera, &projection);
+        //let inv_view_proj = cgmath::Matrix4::from(uniforms.view_proj).invert().unwrap();
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
@@ -241,6 +247,7 @@ impl State {
             wgpu::include_spirv!("shader.frag.spv"),
         );
    
+        let curr_cursor_pos:PhysicalPosition<f64> = PhysicalPosition{x: 0.0, y: 0.0};
 
         Self {
             surface,
@@ -259,6 +266,8 @@ impl State {
             size,
             mouse_pressed: false,
             depth_texture,
+            curr_cursor_pos,
+            //inv_view_proj
         }
     }
 
@@ -291,7 +300,7 @@ impl State {
             } => {
                 self.mouse_pressed = *state == ElementState::Pressed;
                 true
-            }
+            }          
             DeviceEvent::MouseMotion { delta } => {
                 if self.mouse_pressed {
                     self.camera_controller.process_mouse(delta.0, delta.1);
@@ -306,6 +315,7 @@ impl State {
         self.camera_controller.update_camera(&mut self.camera, dt);
         self.uniforms
             .update_view_proj(&self.camera, &self.projection);
+        //self.inv_view_proj = cgmath::Matrix4::from(self.uniforms.view_proj).invert().unwrap();
         self.queue.write_buffer(
             &self.uniform_buffer,
             0,
@@ -374,7 +384,7 @@ fn main() {
     use futures::executor::block_on;
 
     // Since main can't be async, we're going to need to block
-    let mut state = block_on(State::new(&window));
+    let mut appstate = block_on(State::new(&window));
     let mut last_render_time = std::time::Instant::now();
 
     event_loop.run(move |event, _, control_flow| {
@@ -385,9 +395,8 @@ fn main() {
                 ref event,
                 .. // We're not using device_id currently
             } => {
-                state.input(event);
+                appstate.input(event);
             }
-            // UPDATED!
             Event::WindowEvent {
                 ref event,
                 window_id,
@@ -405,11 +414,22 @@ fn main() {
                         _ => {}
                     },
                     WindowEvent::Resized(physical_size) => {
-                        state.resize(*physical_size);
-                    }
+                        appstate.resize(*physical_size);
+                    },
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        state.resize(**new_inner_size);
-                    }
+                        appstate.resize(**new_inner_size);
+                    },
+                    WindowEvent::CursorMoved {position, ..}=>{
+                        appstate.curr_cursor_pos = *position;
+                    }, 
+                    WindowEvent::MouseInput{state, button, ..}=>{
+                        if *state == ElementState::Released && *button == MouseButton::Right
+                        {
+                            println!("state.curr_cursor_pos {:?}", appstate.curr_cursor_pos);
+                            //Transform to worldcoord
+                            let retval = mouse_picker::MousePicker::GetModelCoordinatesForVoxelUnderMouse( &appstate.size, &appstate.curr_cursor_pos, &appstate.camera, &appstate.projection, &appstate.obj_model);
+                        }                       
+                    },
                     _ => {}
                 }
             }
@@ -418,11 +438,11 @@ fn main() {
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
                 last_render_time = now;
-                state.update(dt);
-                match state.render() {
+                appstate.update(dt);
+                match appstate.render() {
                     Ok(_) => {}
                     // Recreate the swap_chain if lost
-                    Err(wgpu::SwapChainError::Lost) => state.resize(state.size),
+                    Err(wgpu::SwapChainError::Lost) => appstate.resize(appstate.size),
                     // The system is out of memory, we should probably quit
                     Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                     // All other errors (Outdated, Timeout) should be resolved by the next frame

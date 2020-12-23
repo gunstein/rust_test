@@ -410,6 +410,11 @@ impl Model {
         //First chunk,
         //trenger flere sef
         self.world.chunks.insert( [0, 0, 0], self.build_random_chunk());
+        self.world.chunks.insert( [1, 0, 0], self.build_random_chunk());
+        self.world.chunks.insert( [1, 0, 1], self.build_random_chunk());
+        self.world.chunks.insert( [0, 0, 1], self.build_random_chunk());
+        self.world.chunks.insert( [0, 1, 1], self.build_random_chunk());
+        self.world.chunks.insert( [1, 1, 1], self.build_random_chunk());
 
         //Go through world and build meshes. One mesh for each blocktype
         let mut create_mesh_and_addto_model = |blocktype| {
