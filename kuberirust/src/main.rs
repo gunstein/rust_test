@@ -427,7 +427,7 @@ fn main() {
                         {
                             println!("state.curr_cursor_pos {:?}", appstate.curr_cursor_pos);
                             //Transform to worldcoord
-                            let retval = mouse_picker::MousePicker::GetModelCoordinatesForVoxelUnderMouse( &appstate.size, &appstate.curr_cursor_pos, &appstate.camera, &appstate.projection, &appstate.obj_model);
+                            let retval = mouse_picker::MousePicker::get_model_coordinates_for_voxel_under_mouse( &appstate.size, &appstate.curr_cursor_pos, &appstate.camera, &appstate.projection, &appstate.obj_model);
                         }                       
                     },
                     _ => {}

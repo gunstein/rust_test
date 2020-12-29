@@ -124,6 +124,29 @@ pub struct World{
     pub chunks: HashMap<[u8;3], Chunk>,
 }
 
+impl World {
+    pub fn GetBlockFromGlobalAddress(&self, x : f64, y: f64, z: f64) -> Option<&Block>
+    {
+        //Find chunk
+        let chunk_x : u8 = ((x / (CHUNKSIZE as f64)) as f64).floor() as u8;
+        let chunk_y : u8 = ((y / (CHUNKSIZE as f64)) as f64).floor() as u8;
+        let chunk_z : u8 = ((z / (CHUNKSIZE as f64)) as f64).floor() as u8;
+
+        let chunk = self.chunks.get(&[chunk_x, chunk_y, chunk_z]);
+        if chunk.is_none(){
+            return None
+        }
+
+        //find block
+        let block_x : u8 = (x.floor() as u64 - (chunk_x * CHUNKSIZE) as u64) as u8;
+        let block_y : u8 = (y.floor() as u64 - (chunk_y * CHUNKSIZE) as u64) as u8;
+        let block_z : u8 = (z.floor() as u64 - (chunk_z * CHUNKSIZE) as u64) as u8;
+
+        let block = chunk.unwrap().blocks.get(&[block_x, block_y, block_z]);
+
+        block
+    }
+}
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone)]
 pub enum QuadType {
