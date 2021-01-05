@@ -176,7 +176,9 @@ impl State {
                 label: Some("texture_bind_group_layout"),
             });
 
-        let camera = camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
+        //let camera = camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
+        let camera = camera::Camera::new((1.0, 1.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(0.0));
+
         let projection =
             camera::Projection::new(sc_desc.width, sc_desc.height, cgmath::Deg(45.0), 0.1, 100.0);
         let camera_controller = camera::CameraController::new(4.0, 0.4);
@@ -426,8 +428,8 @@ fn main() {
                         if *state == ElementState::Released && *button == MouseButton::Right
                         {
                             println!("state.curr_cursor_pos {:?}", appstate.curr_cursor_pos);
-                            //Transform to worldcoord
-                            let retval = mouse_picker::MousePicker::get_model_coordinates_for_voxel_under_mouse( &appstate.size, &appstate.curr_cursor_pos, &appstate.camera, &appstate.projection, &appstate.obj_model);
+                            //select block under mouse
+                            let coord_selected_block = mouse_picker::MousePicker::get_model_coordinates_for_voxel_under_mouse( &appstate.size, &appstate.curr_cursor_pos, &appstate.camera, &appstate.projection, &appstate.obj_model);
                         }                       
                     },
                     _ => {}

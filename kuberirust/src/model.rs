@@ -121,26 +121,34 @@ pub struct Mesh {
 
 #[derive(Debug)]
 pub struct World{
-    pub chunks: HashMap<[u8;3], Chunk>,
+    pub chunks: HashMap<[i64;3], Chunk>,
 }
 
 impl World {
     pub fn GetBlockFromGlobalAddress(&self, x : f64, y: f64, z: f64) -> Option<&Block>
     {
         //Find chunk
-        let chunk_x : u8 = ((x / (CHUNKSIZE as f64)) as f64).floor() as u8;
-        let chunk_y : u8 = ((y / (CHUNKSIZE as f64)) as f64).floor() as u8;
-        let chunk_z : u8 = ((z / (CHUNKSIZE as f64)) as f64).floor() as u8;
+        let chunk_x : i64 = ((x / (CHUNKSIZE as f64)) as f64).floor() as i64;
+        let chunk_y : i64 = ((y / (CHUNKSIZE as f64)) as f64).floor() as i64;
+        let chunk_z : i64 = ((z / (CHUNKSIZE as f64)) as f64).floor() as i64;
+        println!("chunk_x {:?}", chunk_x);
+        println!("chunk_y {:?}", chunk_y);
+        println!("chunk_z {:?}", chunk_z);
 
         let chunk = self.chunks.get(&[chunk_x, chunk_y, chunk_z]);
         if chunk.is_none(){
+            println!("chunk not found ");
             return None
         }
 
         //find block
-        let block_x : u8 = (x.floor() as u64 - (chunk_x * CHUNKSIZE) as u64) as u8;
-        let block_y : u8 = (y.floor() as u64 - (chunk_y * CHUNKSIZE) as u64) as u8;
-        let block_z : u8 = (z.floor() as u64 - (chunk_z * CHUNKSIZE) as u64) as u8;
+        let block_x : u8 = (x.floor().abs() as u64 - (chunk_x.abs() as u64 * CHUNKSIZE as u64) as u64) as u8;
+        let block_y : u8 = (y.floor().abs() as u64 - (chunk_y.abs() as u64 * CHUNKSIZE as u64) as u64) as u8;
+        let block_z : u8 = (z.floor().abs() as u64 - (chunk_z.abs() as u64 * CHUNKSIZE as u64) as u64) as u8;
+
+        println!("block_x {:?}", block_x);
+        println!("block_y {:?}", block_y);
+        println!("block_z {:?}", block_z);
 
         let block = chunk.unwrap().blocks.get(&[block_x, block_y, block_z]);
 
@@ -269,6 +277,8 @@ impl Model {
     {
         //Generate random chunk
         let mut chunk = Chunk{ blocks : HashMap::new(),};
+        chunk.blocks.insert( [1, 1, 1], Block{blocktype:BlockType::GRASS});
+        /*
         let mut rng = rand::thread_rng();
         for k in 0..CHUNKSIZE {
             for l in 0..CHUNKSIZE {
@@ -285,7 +295,7 @@ impl Model {
                     }
                 }
             }
-        }
+        }*/
         chunk
     }
 
@@ -433,11 +443,11 @@ impl Model {
         //First chunk,
         //trenger flere sef
         self.world.chunks.insert( [0, 0, 0], self.build_random_chunk());
-        self.world.chunks.insert( [1, 0, 0], self.build_random_chunk());
-        self.world.chunks.insert( [1, 0, 1], self.build_random_chunk());
-        self.world.chunks.insert( [0, 0, 1], self.build_random_chunk());
-        self.world.chunks.insert( [0, 1, 1], self.build_random_chunk());
-        self.world.chunks.insert( [1, 1, 1], self.build_random_chunk());
+        //self.world.chunks.insert( [1, 0, 0], self.build_random_chunk());
+        //self.world.chunks.insert( [1, 0, 1], self.build_random_chunk());
+        //self.world.chunks.insert( [0, 0, 1], self.build_random_chunk());
+        //self.world.chunks.insert( [0, 1, 1], self.build_random_chunk());
+        //self.world.chunks.insert( [1, 1, 1], self.build_random_chunk());
 
         //Go through world and build meshes. One mesh for each blocktype
         let mut create_mesh_and_addto_model = |blocktype| {
@@ -456,9 +466,9 @@ impl Model {
                     if block.blocktype == blocktype
                     {
                         //transler til rett plass. Må ta hensyn til flere chunks.
-                        let x = (chunkkey[0] * CHUNKSIZE ) + blockkey[0];
-                        let y = (chunkkey[1] * CHUNKSIZE ) + blockkey[1];
-                        let z = (chunkkey[2] * CHUNKSIZE ) + blockkey[2];
+                        let x = (chunkkey[0] * CHUNKSIZE as i64) + blockkey[0] as i64;
+                        let y = (chunkkey[1] * CHUNKSIZE as i64) + blockkey[1] as i64;
+                        let z = (chunkkey[2] * CHUNKSIZE as i64) + blockkey[2] as i64;
 
                         instances.push(create_instance(x as f32, y as f32, z as f32));
                     }
